@@ -31,12 +31,13 @@ async def fetch():
             processed += 1
             print(f"Fetched documents: {processed}/{total} ({round((processed/total)*100, 2)}%)", end="              \r")
 
-    print("\nDone")
-
-
 if __name__ == "__main__":
     with open(OUTPUT_FILE, "w", encoding="utf-8") as f:
         f.write("[")
     asyncio.run(fetch())
+
+    with open(OUTPUT_FILE, 'rb+') as f: #remove last comma
+        f.seek(-2, 2) 
+        f.truncate()
     with open(OUTPUT_FILE, "a", encoding="utf-8") as f:
         f.write("]")

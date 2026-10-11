@@ -1,11 +1,26 @@
 import os
 import json
+from matplotlib.axes import Axes
+from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
+import streamlit as st
+import pandas as pd
 
 
 file_path = os.path.dirname(__file__)
-INPUT_FILE = f"{file_path}/../data/tmp.json"
+INPUT_FILE = f"{file_path}/../data/data.json"
+STOP_ID_FILE = f"{file_path}/../TT_info/stops.csv"
 
+
+def load_stop_id(path:str) -> pd.DataFrame:
+    df = pd.read_csv(path, header=0)
+    return df
+
+def load_data(path:str) -> dict:
+    if path.endswith(".json"):
+        with open(path, "r") as f:
+            return json.load(f)
+    return {"Error": "File is not a JSON"}
 
 def sort_dict(dict_to_sort:dict) -> dict:
     tmp = []
@@ -29,25 +44,40 @@ def sort_dict(dict_to_sort:dict) -> dict:
         averages["xdata"].append(i)
         averages["ydata"].append(sum/length[i])
 
-    return averages 
+    return averages
+
+def map_id_to_stopname(stop_id:int) -> str:
+    global stop_id_mapping
+    correct_stop = stop_id_mapping["stop_id"] == stop_id
+    stop_name = stop_id_mapping.loc[correct_stop]["stop_name"]
+    if stop_name.empty:
+        return "???"
+    return stop_name.values[0]
+
+
+def prepare_image(fig: Figure, ax:Axes, x: list, y:list, name:str):
+    plt.plot(x, y, figure=fig)
+    plt.title(f"Delays of bus: {name}", figure=fig)
+    st.text(x)
+    x_labels = [map_id_to_stopname(stop_id) for stop_id in x]
+    ax.set_xticks(x)
+    ax.set_xticklabels(x_labels, rotation=90, fontsize=8)
+    plt.tight_layout()
 
 if __name__ == "__main__":
-    with open(INPUT_FILE, "r") as f:
-        database_data = json.load(f)
-        
-    for (i, bus) in enumerate(database_data):
-        plt.figure(figsize=(8, 4))
+    data = load_data(INPUT_FILE)
+    stop_id_mapping = load_stop_id(STOP_ID_FILE)
+    for (i, bus) in enumerate(data[:10]):
+        fig, ax  = plt.subplots(figsize=(8, 4))
         bus = dict(bus)
         delays = bus["delays"]
-        data_to_plot = {"xdata":[], "ydata":[]}
+        data_to_plot = {"xdata":[], "ydata":[], "x_ticks":[]}
         for delay in delays:
             data_to_plot["xdata"].append(delay["lastSequenceDetection"])
             data_to_plot["ydata"].append(delay["delay"])
         data_to_plot = sort_dict(data_to_plot)
-        plt.plot(data_to_plot["xdata"], data_to_plot["ydata"], label=f"{bus["routeShortName"]} ({bus["tripid"]})")
-        plt.title(f"Delays of bus: {bus['routeShortName']}")
-        plt.tight_layout()
-        plt.savefig(f"plots/plot_{bus["tripid"]}.png")
+        prepare_image(fig, ax, data_to_plot["xdata"], data_to_plot["ydata"], bus['routeShortName'])
+        st.pyplot(fig)
+        plt.clf()
 
-    # plt.show()
 
